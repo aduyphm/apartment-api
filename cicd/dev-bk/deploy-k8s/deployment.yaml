@@ -1,0 +1,93 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apartment-price-prediction
+spec:
+  selector:
+    matchLabels:
+      name: apartment-price-prediction
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        name: apartment-price-prediction
+    spec:
+      volumes:
+        - configMap:
+            defaultMode: 256
+            items:
+            name: apartment-price-prediction-config
+            optional: false
+          name: apartment-price-prediction-config-volume
+        - downwardAPI:
+            defaultMode: 420
+            items:
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.labels
+                path: labels
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.annotations
+                path: annotations
+          name: podinfo
+      containers:
+        - name: apartment-price-prediction
+          image: 10.1.16.211/dataquality/apartment-price-prediction:1.0.0
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 11108
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 11108
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          ports:
+            - containerPort: 11108
+              name: s-cdccore-p
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /deployment/config
+              name: apartment-price-prediction-config-volume
+              readOnly: true
+            - mountPath: /deployment/podinfo
+              name: podinfo
+              readOnly: true
+      imagePullSecrets:
+        - name: harbor-secret-registry
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: apartment-price-prediction
+  name: apartment-price-prediction
+spec:
+  type: NodePort
+  ports:
+    - nodePort: 11108
+      port: 11108
+      targetPort: 11108
+  selector:
+    name: apartment-price-prediction

@@ -1,0 +1,143 @@
+# So luong pod duoc tao
+replicaCount: 1
+
+# Khai bao service
+service:
+  type: NodePort
+  nodePort: 11108
+  port: 11108
+  targetPort: 11108
+
+# Khai bao hostnames
+hostAliases:
+  10.1.18.193: esbinternal.mbbank.com.vn
+
+# Khai bao su dung configmap
+configMaps:
+  - config.env
+
+# Khai bao su dung PVC
+pvc: false
+namePVC:
+  # - pvc-ocr
+
+# Khai bao volumeMount
+volumeMountsMap:
+  mountPathconfig: /deployment/config
+  mountPathpodinfo: /deployment/podinfo
+  mountPathcommon: /deployment/common/config
+  mountPathPVC: /data
+
+  # mountPathPVC:
+  #   pvc-ocr: /data
+
+#Khai bao tai nguyen su dung cho pod
+resources:
+  limits:
+    memory: 2Gi
+  requests:
+    memory: 1Gi
+
+# Khai bao promethus
+promethus: true
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /actuator/prometheus
+  prometheus.io/port: "11108"
+
+# Khai bao label cho istio
+labels: false
+templateLabels:
+  version: old
+  sidecar.istio.io/inject: "true"
+
+# Khai bao HealthCheck
+healthCheck: true
+startupProbe:
+  failureThreshold: 10
+  httpGet:
+    path: /actuator/health
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 2
+livenessProbe:
+  failureThreshold: 5
+  httpGet:
+    path: /actuator/health
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 2
+readinessProbe:
+  failureThreshold: 5
+  httpGet:
+    path: /actuator/health
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 30
+  successThreshold: 1
+  timeoutSeconds: 2
+
+Command:
+  # -- Options: [java, golang, dotnet, python-uvicorn, python-gunicorn, python, angular, manual]
+  option: manual
+  # binaryfile: main.py
+  manual: "uvicorn app.main:app --host 0.0.0.0 --port 11108"
+
+# PYTHON_OPTS: /deployment/config/config.env
+
+# Khai bao bien moi truong
+ENV_PROFILE: uat
+# JAVA_TOOL_OPTIONS: -Xms512m -Xmx2048m -Dsun.net.http.retryPost=false -Dhttp.retryPost=false -Dspring.config.location=file:/deployment/config/application.properties,file:/deployment/config/application-dev.properties,file:/deployment/sc/application-sc.properties,file:/deployment/sc/application-sc-common.properties -Dlogging.config=/deployment/config/log4j2.xml
+# JAVA_TOOL_OPTIONS: -Xms512m -Xmx2048m -Dsun.net.http.retryPost=false -Dhttp.retryPost=false -Dspring.config.location=file:/deployment/config/application.properties -Dlogging.config=/deployment/config/log4j2.xml
+
+# Chi dinh pod chay tren node co dinh(chi dung tren live: default hoac ecm)
+NodeSelectorEnable: false
+nodeName: default
+
+# So lan deploy Helm
+numberHelm: H1
+
+# Thong tin image
+image:
+  repository: image_version
+  pullPolicy: Always
+  tag: "image_tag"
+
+# Khai bao secret-registry harbor
+imagePullSecrets:
+  - name: harbor-secret-registry
+
+# Khai bao hpa thi de gia tri hpa true,,nguoc lai de false
+autoscaling:
+  enabled: false
+  minPodsHPA: 2
+  maxPodsHPA: 5
+  #cpuHPA: 80
+  memoryHPA: 80
+
+# ServiceAccount configuration for the Argo CD application controller
+serviceAccount:
+  create: true
+  name: k8s_sa
+
+# Khai bao user
+## User appadmin, ID 10000
+## User nginx, ID 101
+### Configure Pods Security Context
+podSecurityContext:
+  enabled: true
+  fsGroup: 10000
+
+### Configure Container Security Context
+containerSecurityContext:
+  enabled: true
+  runAsUser: 10000
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+
+### Cau hinh dung vault tap chung
+VaultInject: true

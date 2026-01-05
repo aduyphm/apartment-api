@@ -1,0 +1,87 @@
+# So luong pod duoc tao
+replicaCount: 1
+
+# Khai bao service
+service:
+  type: NodePort
+  nodePort: 11108
+  port: 11108
+
+# Khai bao hostnames
+hostAliases:
+  10.1.18.193: esbinternal.mbbank.com.vn
+   
+# Khai bao su dung configmap
+configMaps:
+  - config.env
+
+# Khai bao su dung PVC
+pvc: false
+namePVC: pvc-cmv
+   
+# Khai bao volumeMount
+volumeMountsMap:
+  mountPathconfig: /deployment/config
+  mountPathpodinfo: /deployment/podinfo   
+  mountPathPVC: /data
+  
+#Khai bao tai nguyen su dung cho pod
+resources:
+  limits:
+    memory: 2Gi
+  requests:
+    memory: 1Gi
+
+# Khai bao promethus
+promethus: false
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /actuator/prometheus
+  prometheus.io/port: "11108"
+  
+# Khai bao HealthCheck
+healthCheck: false
+startupProbe:
+  failureThreshold: 10
+  httpGet:
+    path: /actuator/health/liveness
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 5
+  successThreshold: 4
+  timeoutSeconds: 5
+livenessProbe:
+  failureThreshold: 3
+  httpGet:
+    path: /actuator/health/liveness
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 10
+  successThreshold: 4
+  timeoutSeconds: 5
+readinessProbe:
+  failureThreshold: 3
+  httpGet:
+    path: /actuator/health/readiness
+    port: 11108
+    scheme: HTTP
+  periodSeconds: 3
+  successThreshold: 4
+  timeoutSeconds: 5
+
+# Khai bao bien moi truong 
+ENV_PROFILE: dev
+JVM_OPTS: -Xms512m -Xmx1024m -Dsun.net.http.retryPost=false -Dhttp.retryPost=false
+
+ 
+# So lan deploy Helm
+numberHelm: H1
+
+# Thong tin image
+image:
+  repository: image_version
+  pullPolicy: Always
+
+# Khai bao secret-registry harbor
+imagePullSecrets:
+ - name: harbor-secret-registry

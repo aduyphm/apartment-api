@@ -1,0 +1,20 @@
+vault.hashicorp.com/tls-skip-verify: "true"
+traffic.sidecar.istio.io/excludeOutboundPorts: "8200"
+vault.hashicorp.com/agent-inject: 'true'
+vault.hashicorp.com/role: 'r-c0-57'
+vault.hashicorp.com/auth-path: 'auth/kubernetes-dev'
+vault.hashicorp.com/agent-pre-populate-only: 'true'
+vault.hashicorp.com/agent-requests-cpu: '50m'
+vault.hashicorp.com/agent-limits-cpu: '100m'
+vault-hashicorp-com-agent-requests-mem: '50Mi'
+vault.hashicorp.com/agent-limits-mem: '100Mi'
+vault.hashicorp.com/agent-cache-enable: 'true'
+vault.hashicorp.com/agent-revoke-on-shutdown: 'true'
+vault.hashicorp.com/secret-volume-path: /deployment/sc
+vault.hashicorp.com/agent-inject-secret-config-sc.env: 'kv/c0/dev-l01/i-01-02/common/HCfUDsz-OMPUtSBK0bG6HAiGttmnauH4JJLyNMbIK07oDL9PX3ffO-kBq27tpAKhamJ30BmY__EfoEnk4JkmWQLoPYJHZmmqpGxC-Qf9s7wirmy2U2936hYHAxUd027_CDILBGxuJd-6-uMgjM7ybLYuX8ElTw6tqUz3v7pXK1E=/config-sc-common-57'
+vault.hashicorp.com/agent-inject-template-config-sc.env: |
+  {{ with secret "kv/c0/dev-l01/i-01-02/common/HCfUDsz-OMPUtSBK0bG6HAiGttmnauH4JJLyNMbIK07oDL9PX3ffO-kBq27tpAKhamJ30BmY__EfoEnk4JkmWQLoPYJHZmmqpGxC-Qf9s7wirmy2U2936hYHAxUd027_CDILBGxuJd-6-uMgjM7ybLYuX8ElTw6tqUz3v7pXK1E=/config-sc-common-57" -}}
+  DATABASE_USERNAME={{ .Data.data.AI_POSTGRES_DATALAKE_USERNAME }}
+  DATABASE_PASSWORD={{ .Data.data.AI_POSTGRES_DATALAKE_PASSWORD_ENCRYPTED }}
+  ENCRYPT_KEY={{ .Data.data.AI_APARTMENT_ECRYPT_KEY }}
+  {{- end }}

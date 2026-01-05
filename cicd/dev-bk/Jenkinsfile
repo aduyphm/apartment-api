@@ -1,0 +1,103 @@
+#!groovy
+
+node("${NODE_INTEGRATION_TEAM}") {
+    // =================================================================================
+    /**
+     * TODO: Chi thay doi 3 thong tin tren tuong ung voi project
+     *
+     * project_name: Name of project
+     * kubernetes_namespace: namespace of K8S
+     * environment: Special environment (Optional - dev/uat/golive)
+     *      dev: 10.1.16.211
+     *      uat: 10.1.27.43
+     *      golive: generate file deploy on helm-golive repo
+     */
+    def project_name = "apartment-price-prediction"
+    def kubernetes_namespace = "dev-edp-bigdata"
+    def environment = "dev"
+    // =================================================================================
+
+    def harbor_host
+    def helm_host
+    def image_version
+    def url
+    def helm_template_name
+
+
+    //def nexus_user="${nexus_user_ocr_12_177}"
+    //def nexus_password="${nexus_password_ocr_12_177}"
+    def nexus_python_index_url="${nexus_python_index_url_12_177}"
+    def nexus_python_trusted_host="${nexus_python_trusted_host_12_177}"
+
+    if (environment == "dev") {
+        harbor_host = "${harbor_dev}"
+        helm_host = "${helm_dev}"
+        image_version = "1.0.0"
+        helm_template_name = "helm-template-mbbank"
+        url = "${helm_deploy_dev}"
+    } else if (environment == "uat") {
+        harbor_host = "${harbor_uat}"
+        helm_host = "${helm_uat}"
+        image_version = "1.0.0"
+        helm_template_name = "helm-template-mbbank"
+        url = "${helm_deploy_uat}"
+    } else if (environment == "golive") {
+        harbor_host = "${harbor_uat}"
+        helm_host = "${helm_golive}"
+        image_version = "1.1.${BUILD_NUMBER}"
+        helm_template_name = "helm-template-mbbank"
+    }
+
+    def docker_prefix = "${harbor_host}/${kubernetes_namespace}"
+
+    stage('1.Clone repository') {
+        checkout scm
+    }
+
+    stage('Build image') {
+    withCredentials([usernamePassword(credentialsId: 'nexus_ocr', usernameVariable: 'username', passwordVariable: 'password')]) {
+        app = docker.build("${docker_prefix}/${project_name}:${image_version}","-f ./cicd/dev/Dockerfile \
+            --build-arg NEXUS_USER=$username \
+            --build-arg NEXUS_PASSWORD=$password  \
+            --build-arg NEXUS_PYTHON_INDEX_URL=$nexus_python_index_url \
+            --build-arg NEXUS_PYTHON_TRUSTED_HOST=$nexus_python_trusted_host .")
+        }
+    }
+
+    stage('4. Push image') {
+        docker.withRegistry("http://${harbor_host}/", 'harbor-private-registry-dev') {
+            app.push()
+            sh "docker image rm ${docker_prefix}/${project_name}:${image_version}"
+        }
+    }
+
+    stage('5.Push to Helm') {
+        sh "/usr/local/bin/helm repo update"
+        sh "/usr/local/bin/helm fetch nexusrepo/${helm_template_name} --version 0.1.0"
+        sh "tar -xvf ${helm_template_name}-0.1.0.tgz"
+        sh "/usr/local/bin/helm create ${project_name}"
+        sh "rm -rf ${project_name}/templates/"
+        sh "yes | cp -rf ${helm_template_name}/templates/ ${project_name}/"
+        sh "yes | cp -rf cicd/${environment}/deploy-k8s/values.yaml ${project_name}/"
+        sh "yes | cp cicd/${environment}/configmap-k8s/* ${project_name}/"
+        sh "sed -i 's|image_version|$docker_prefix/${project_name}:${image_version}|g' ${project_name}/values.yaml"
+        sh "sed -i 's/H1/H305${BUILD_NUMBER}/g' ${project_name}/values.yaml"
+        sh "/usr/local/bin/helm template ${project_name}/ > ${project_name}/deploy-${project_name}.yaml "
+        sh "tar -cvzf ${project_name}-${image_version}.tgz ${project_name}/"
+        withCredentials([usernamePassword(credentialsId: 'helm-package-dev', usernameVariable: 'username', passwordVariable: 'password')]) {
+                 sh "curl -u $username:$password http://devci.mbbank.com.vn:8447/repository/${helm_host}/ --upload-file ${project_name}-${image_version}.tgz"
+               }
+        //sh "curl -u ${user_helm_nexus}:${password_helm_nexus} http://devci.mbbank.com.vn:8447/repository/${helm_host}/ --upload-file ${project_name}-${image_version}.tgz"
+        sh "rm -rf ${project_name}-${image_version}.tgz"
+    }
+
+    stage('6.Deploy to K8s') {
+        if (environment == "dev" || environment == "uat") {
+            build job: "${url}", parameters: [string(name: 'ProjectName', value: "${project_name}"),
+                                              string(name: 'ImageVersion', value: "${image_version}"),
+                                              string(name: 'KubernetesNamespace', value: "$kubernetes_namespace")]
+        } else if (environment == "golive") {
+            echo "Non CD"
+        }
+    }
+}
